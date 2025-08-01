@@ -11,12 +11,12 @@ const NEW_WHO_SERIES_BACKGROUND_URL = "https://i.imgur.com/250Ix4s.jpeg";
 
 const manifest = {
   "id": "community.whoniverse.addon",
-  "version": "1.1.2", // Bumping version for display improvement
+  "version": "1.1.3",  // bumped version for subtitles support
   "name": "Whoniverse",
   "description": "The complete Doctor Who universe, including Classic and New Who episodes, specials, minisodes, prequels, and spinoffs in original UK broadcast order.",
   "logo": ADDON_LOGO_URL,
   "types": ["series"],
-  "resources": ["catalog", "meta", "stream"],
+  "resources": ["catalog", "meta", "stream", "subtitles"],
   "catalogs": [
     {
       "type": "series",
@@ -100,7 +100,6 @@ builder.defineMetaHandler(async (args) => {
     return Promise.resolve({ meta: null });
 });
 
-// THIS IS THE RELEVANT SECTION
 builder.defineStreamHandler(async (args) => {
     console.log("Stream request for ID:", args.id, "Type:", args.type);
 
@@ -122,7 +121,7 @@ builder.defineStreamHandler(async (args) => {
                 subtitles.push({
                     id: 'archive_en_sub',
                     url: episode.subtitleUrl,
-                    lang: 'en'
+                    lang: 'eng'
                 });
             }
 
@@ -139,6 +138,34 @@ builder.defineStreamHandler(async (args) => {
         }
     }
     return Promise.resolve({ streams: [] });
+});
+
+// subtitle handler for stremio 5.0 https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/api/requests/defineSubtitlesHandler.md
+builder.defineSubtitlesHandler(async (args) => {
+  // args.id format: 'whoniverse_new_who:season:episode'
+  if (args.type === 'series' && args.id) {
+    const [seriesId, seasonStr, episodeStr] = args.id.split(':');
+    if (seriesId !== NEW_WHO_SERIES_STREMIO_ID) {
+      return { subtitles: [] };
+    }
+
+    const season = parseInt(seasonStr, 10);
+    const episodeNum = parseInt(episodeStr, 10);
+    const episode = allNewWhoEpisodes.find(ep => ep.season === season && ep.episode === episodeNum);
+
+    if (episode && episode.subtitleUrl) {
+      return {
+        subtitles: [
+          {
+            id: `archive_en_sub`,
+            url: episode.subtitleUrl,
+            lang: 'eng',
+          }
+        ]
+      };
+    }
+  }
+  return { subtitles: [] };
 });
 
 const port = process.env.PORT || 7000;
